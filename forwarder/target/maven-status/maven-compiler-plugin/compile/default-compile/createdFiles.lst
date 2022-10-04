@@ -1,0 +1,15 @@
+data/lineage/forwarder/bean/Request.class
+data/lineage/forwarder/avro/ProduceRequest.class
+data/lineage/forwarder/avro/FetchRequest$Builder.class
+data/lineage/forwarder/App.class
+data/lineage/forwarder/bean/Aclauthorization.class
+data/lineage/forwarder/bean/Authorizationinfo.class
+data/lineage/forwarder/mapper/Mapper.class
+data/lineage/forwarder/bean/Requestmetadata.class
+data/lineage/forwarder/avro/FetchRequest.class
+data/lineage/forwarder/bean/Authenticationinfo.class
+data/lineage/forwarder/avro/ProduceRequest$Builder.class
+data/lineage/forwarder/bean/Data.class
+data/lineage/forwarder/bean/AuditEventLog.class
+data/lineage/forwarder/avro/FetchRequest$1.class
+data/lineage/forwarder/avro/ProduceRequest$1.class

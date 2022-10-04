@@ -329,3 +329,21 @@ services:
     entrypoint: [ "sh", "-c", "sleep infinity" ]
     profiles:
       - "kcat"
+
+  forwarder:
+    image: forwarder
+    depends_on:
+      - broker
+      - schema-registry
+    hostname: data-lineage-forwarder
+    container_name: data-lineage-forwarder
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka-broker-1:19094
+      KAFKA_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      FORWARDER_SOURCE_TOPIC: confluent-audit-log-events
+      FORWARDER_FETCH_TOPIC: data-lineage-fetch-requests
+      FORWARDER_PRODUCE_TOPIC: data-lineage-produce-requests
+      FORWARDER_DLQ_TOPIC: data-lineage-dlq-requests
+      FORWARDER_EXCLUDE_TOPIC: "^_(.*)|^connect(.*)|^data-lineage(.*)"
+
+    

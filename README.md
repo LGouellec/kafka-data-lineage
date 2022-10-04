@@ -2,7 +2,6 @@
 On-prem Data Lineage based on Confluent Audit Logs
 
 
-
-# TODO
-test/docker-compose.yml work
-need to add connect, ksql, registry
+TODO
+- forwarder image and build in top of start.sh
+- make processing application

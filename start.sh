@@ -107,7 +107,7 @@ docker exec kafka-broker-1 kafka-acls --bootstrap-server kafka-broker-1:19094 --
 
 docker exec kafka-broker-1 kafka-acls --bootstrap-server kafka-broker-1:19094 --command-config /etc/kafka/client-properties/admin.properties --add \
                                     --allow-principal 'User:client' --allow-host '*' \
-                                    --operation Read --operation Describe --group _confluent --resource-pattern-type prefixed
+                                    --operation Read --operation Describe --group '*'
 
 docker exec kafka-broker-1 kafka-acls --bootstrap-server kafka-broker-1:19094 --command-config /etc/kafka/client-properties/admin.properties --add \
                                     --allow-principal 'User:client' --allow-host '*' \
@@ -137,6 +137,11 @@ docker-compose -f stack/docker-compose.yml up -d --build schema-registry connect
 # Create topic
 echo "Create stock_trades topic"
 docker exec kafka-broker-1 kafka-topics --bootstrap-server kafka-broker-1:19094 --command-config /etc/kafka/client-properties/admin.properties --create --topic stock_trades --partitions 4 --replication-factor 1
+
+echo "Create data lineage topics"
+docker exec kafka-broker-1 kafka-topics --bootstrap-server kafka-broker-1:19094 --command-config /etc/kafka/client-properties/admin.properties --create --topic data-lineage-fetch-requests --partitions 8 --replication-factor 1
+docker exec kafka-broker-1 kafka-topics --bootstrap-server kafka-broker-1:19094 --command-config /etc/kafka/client-properties/admin.properties --create --topic data-lineage-produce-requests --partitions 8 --replication-factor 1
+docker exec kafka-broker-1 kafka-topics --bootstrap-server kafka-broker-1:19094 --command-config /etc/kafka/client-properties/admin.properties --create --topic data-lineage-dlq-requests --partitions 8 --replication-factor 1
 
 echo "Add ACLs for julie"
 docker exec kafka-broker-1 kafka-acls --bootstrap-server kafka-broker-1:19094 --command-config /etc/kafka/client-properties/admin.properties --add \

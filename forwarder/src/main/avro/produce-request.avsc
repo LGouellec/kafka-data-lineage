@@ -1,0 +1,31 @@
+{
+  "namespace": "data.lineage.forwarder.avro",
+  "type": "record",
+  "name": "ProduceRequest",
+  "fields": [
+    {
+      "name": "id",
+      "type": "string"
+    },
+    {
+      "name": "methodName",
+      "type": "string"
+    },
+    {
+       "name": "topic",
+       "type": "string"
+    },
+    {
+       "name": "user",
+       "type": "string"
+    },
+    {
+       "name": "operation",
+       "type": "string"
+    },
+    {
+       "name": "client_id",
+       "type": "string"
+    }
+  ]
+}
