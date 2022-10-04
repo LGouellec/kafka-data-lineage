@@ -1,0 +1,331 @@
+---
+version: '3.5'
+services:
+  zookeeper-add-kafka-users:
+    image: confluentinc/cp-kafka:${TAG}
+    container_name: "zookeeper-add-kafka-users"
+    depends_on:
+      - zookeeper
+    command: "bash -c 'echo Waiting for Zookeeper to be ready... && \
+                          cub zk-ready zookeeper-1:22181 120 && \
+                          kafka-configs --zookeeper zookeeper-1:22181 --alter --add-config 'SCRAM-SHA-256=[iterations=4096,password=password]' --entity-type users --entity-name kafkaclient && \
+                          kafka-configs --zookeeper zookeeper-1:22181 --alter --add-config 'SCRAM-SHA-256=[iterations=4096,password=password]' --entity-type users --entity-name kafkabroker && \
+                          kafka-configs --zookeeper zookeeper-1:22181 --alter --add-config 'SCRAM-SHA-256=[password=connect-secret],SCRAM-SHA-512=[password=connect-secret]' --entity-type users --entity-name connect && \
+                          kafka-configs --zookeeper zookeeper-1:22181 --alter --add-config 'SCRAM-SHA-256=[password=schemaregistry-secret],SCRAM-SHA-512=[password=schemaregistry-secret]' --entity-type users --entity-name schemaregistry && \
+                          kafka-configs --zookeeper zookeeper-1:22181 --alter --add-config 'SCRAM-SHA-256=[password=ksqldb-secret],SCRAM-SHA-512=[password=ksqldb-secret]' --entity-type users --entity-name ksqldb && \
+                          kafka-configs --zookeeper zookeeper-1:22181 --alter --add-config 'SCRAM-SHA-256=[password=client-secret],SCRAM-SHA-512=[password=client-secret]' --entity-type users --entity-name client'"
+    environment:
+      KAFKA_BROKER_ID: ignored
+      KAFKA_ZOOKEEPER_CONNECT: ignored
+      KAFKA_OPTS: -Djava.security.auth.login.config=/etc/kafka/secrets/zookeeper_client_jaas.conf
+    volumes:
+      - ./zookeeper/zookeeper_client_jaas.conf:/etc/kafka/secrets/zookeeper_client_jaas.conf
+  
+  zookeeper:
+    image: confluentinc/cp-zookeeper:${TAG}
+    hostname: zookeeper-1
+    container_name: zookeeper-1
+    ports:
+      - "22181:22181"
+    environment:
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_CLIENT_PORT: 22181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_INIT_LIMIT: 5
+      ZOOKEEPER_SYNC_LIMIT: 2
+      ZOOKEEPER_LOG4J_ROOT_LOGLEVEL: "DEBUG"
+      KAFKA_OPTS: -Djava.security.auth.login.config=/etc/kafka/secrets/zookeeper_server_jaas.conf
+        -Dquorum.auth.enableSasl=true
+        -Dquorum.auth.learnerRequireSasl=true
+        -Dquorum.auth.serverRequireSasl=true
+        -Dquorum.cnxn.threads.size=20
+        -Dzookeeper.authProvider.1=org.apache.zookeeper.server.auth.SASLAuthenticationProvider
+        -Dzookeeper.authProvider.2=org.apache.zookeeper.server.auth.DigestAuthenticationProvider
+        -DjaasLoginRenew=3600000
+        -DrequireClientAuthScheme=sasl
+        -Dquorum.auth.learner.loginContext=QuorumLearner
+        -Dquorum.auth.server.loginContext=QuorumServer
+    volumes:
+      - ./zookeeper/zookeeper_server_jaas.conf:/etc/kafka/secrets/zookeeper_server_jaas.conf
+
+  broker:
+    image: confluentinc/cp-server:${TAG}
+    hostname: kafka-broker-1
+    container_name: kafka-broker-1
+    ports:
+      - "19093:19093"
+      - "19094:19094"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-1:22181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-broker-1:19093,SASL_PLAINTEXT://kafka-broker-1:19094
+      KAFKA_SASL_ENABLED_MECHANISMS: SCRAM-SHA-256
+      KAFKA_SECURITY_INTER_BROKER_PROTOCOL: SASL_PLAINTEXT
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: SCRAM-SHA-256
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CONFLUENT_METRICS_REPORTER_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      CONFLUENT_METRICS_REPORTER_SASL_MECHANISM: SCRAM-SHA-256
+      CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka-broker-1:19094
+      KAFKA_OFFSETS_RETENTION_MINUTES: 172800
+      KAFKA_LOG4J_LOGGERS: "kafka.authorizer.logger=INFO,kafka.controller=INFO"
+      KAFKA_LOG4J_ROOT_LOGLEVEL: "INFO"
+      KAFKA_SUPER_USERS: "User:kafkabroker;User:kafkaclient"
+      KAFKA_AUTHORIZER_CLASS_NAME: io.confluent.kafka.security.authorizer.ConfluentServerAuthorizer
+      KAFKA_CONFLUENT_AUTHORIZER_ACCESS_RULE_PROVIDERS: ZK_ACL
+      KAFKA_ZOOKEEPER_SET_ACL: "true"
+      KAFKA_CONFLUENT.SECURITY.EVENT.LOGGER.EXPORTER.KAFKA.TOPIC.CREATE: "true"
+      KAFKA_CONFLUENT.SECURITY.EVENT.LOGGER.EXPORTER.KAFKA.TOPIC.PARTITIONS: 16
+      KAFKA_CONFLUENT.SECURITY.EVENT.LOGGER.EXPORTER.KAFKA.TOPIC.REPLICAS: 1
+      KAFKA_CONFLUENT_SECURITY_EVENT_ROUTER_CONFIG: "{ \"routes\": { \"crn:///kafka=*/group=*\": { \"consume\": { \"allowed\": \"confluent-audit-log-events\", \"denied\": \"confluent-audit-log-events-denied\" } }, \"crn:///kafka=*/topic=*\": { \"produce\": { \"allowed\": \"confluent-audit-log-events\", \"denied\": \"confluent-audit-log-events-denied\" }, \"consume\": { \"allowed\": \"confluent-audit-log-events\", \"denied\": \"confluent-audit-log-events-denied\" } } }, \"destinations\": { \"topics\": { \"confluent-audit-log-events\": { \"retention_ms\": 7776000000 }, \"confluent-audit-log-events-denied\": { \"retention_ms\": 7776000000 } } }, \"default_topics\": { \"allowed\": \"confluent-audit-log-events\", \"denied\": \"confluent-audit-log-events-denied\" }, \"excluded_principals\": [ \"User:kafkabroker\", \"User:client\", \"User:kafkaclient\", \"User:ANONYMOUS\" ] }"
+      KAFKA_ZOOKEEPER_SASL_ENABLED: "true"
+      KAFKA_OPTS: -Dzookeeper.sasl.client=true
+        -Dzookeeper.sasl.clientconfig=Client
+        -Djava.security.auth.login.config=/etc/kafka/secrets/conf/kafka_server_jaas.conf
+    volumes:
+      - ./kafka:/etc/kafka/secrets/conf
+      - ./client-properties:/etc/kafka/client-properties
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:${TAG}
+    hostname: schema-registry
+    container_name: schema-registry
+    restart: always
+    depends_on:
+      - broker
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_JMX_HOSTNAME: localhost
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: broker:19094
+      SCHEMA_REGISTRY_SCHEMA_PROVIDERS_AVRO_VALIDATE_DEFAULTS: "true"
+      SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      SCHEMA_REGISTRY_KAFKASTORE_SASL_MECHANISM: SCRAM-SHA-256
+      SCHEMA_REGISTRY_KAFKASTORE_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.scram.ScramLoginModule required \
+          username=\"schemaregistry\" \
+          password=\"schemaregistry-secret\";"
+
+  connect:
+    image:  cnfldemos/cp-server-connect-datagen:0.6.0-${TAG}
+    hostname: connect
+    container_name: connect
+    restart: always
+    depends_on:
+      - broker
+      - schema-registry
+    ports:
+      - "5005:5005"
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: 'broker:19094'
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect
+      CONNECT_GROUP_ID: "connect-cluster"
+      CONNECT_PRODUCER_CLIENT_ID: "connect-worker-producer"
+      CONNECT_CONFIG_STORAGE_TOPIC: connect-configs
+      CONNECT_OFFSET_STORAGE_TOPIC: connect-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: connect-status
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
+      CONNECT_VALUE_CONVERTER: "io.confluent.connect.avro.AvroConverter"
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_PLUGIN_PATH: /usr/share/confluent-hub-components
+      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=ERROR,org.I0Itec.zkclient=ERROR,org.reflections=ERROR
+      # Confluent Monitoring Interceptors for Control Center Streams Monitoring
+      CONNECT_PRODUCER_INTERCEPTOR_CLASSES: "io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor"
+      CONNECT_PRODUCER_CONFLUENT_MONITORING_INTERCEPTOR_BOOTSTRAP_SERVERS: broker:19094
+      CONNECT_CONSUMER_INTERCEPTOR_CLASSES: "io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor"
+      CONNECT_CONSUMER_CONFLUENT_MONITORING_INTERCEPTOR_BOOTSTRAP_SERVERS: broker:19094
+      # Externalizing Secrets
+      CONNECT_CONFIG_PROVIDERS: 'file'
+      CONNECT_CONFIG_PROVIDERS_FILE_CLASS: 'org.apache.kafka.common.config.provider.FileConfigProvider'
+      # CONNECT_LOG4J_ROOT_LOGLEVEL: DEBUG
+      # KIP-158 https://cwiki.apache.org/confluence/display/KAFKA/KIP-158%3A+Kafka+Connect+should+allow+source+connectors+to+set+topic-specific+settings+for+new+topics (6.x only)
+      CONNECT_TOPIC_CREATION_ENABLE: 'true'
+      # CONNECT_METRIC_REPORTERS: io.confluent.telemetry.reporter.TelemetryReporter
+      # CONNECT_CONFLUENT_TELEMETRY_ENABLED: 'true'
+      # CONNECT_CONFLUENT_TELEMETRY_API_KEY: 'CLOUD_API_KEY'
+      # CONNECT_CONFLUENT_TELEMETRY_API_SECRET: 'CLOUD_API_SECRET'
+      CONNECT_CONNECTOR_CLIENT_CONFIG_OVERRIDE_POLICY: All
+      CONNECT_LOG4J_APPENDER_STDOUT_LAYOUT_CONVERSIONPATTERN: "[%d] %p %X{connector.context}%m (%c:%L)%n"
+      # # https://kafka-docker-playground.io/#/reusables?id=✨-remote-debugging
+      # KAFKA_DEBUG: 'true'
+      # # With JDK9+, need to specify address=*:5005, see https://www.baeldung.com/java-application-remote-debugging#from-java9
+      # JAVA_DEBUG_OPTS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:5005'
+      # uncomment when investigating class not found issue, see https://kafka-docker-playground.io/#/reusables?id=🔬-class-loading
+      # KAFKA_OPTS: '-verbose:class'
+      # Reduce Connect memory utilization
+      #EXTRA_ARGS: ${GRAFANA_AGENT_CONNECT}
+      KAFKA_JVM_PERFORMANCE_OPTS: -server -XX:+UseG1GC -XX:GCTimeRatio=1
+                  -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=20
+                  -XX:MaxGCPauseMillis=10000 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent
+                  -XX:MaxInlineLevel=15 -Djava.awt.headless=true
+      # Configure the Connect workers to use SASL/SCRAM-SHA-256.
+      CONNECT_SASL_MECHANISM: SCRAM-SHA-256
+      CONNECT_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      # JAAS
+      CONNECT_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.scram.ScramLoginModule required \
+          username=\"connect\" \
+          password=\"connect-secret\";"
+      # producer
+      CONNECT_PRODUCER_CONFLUENT_MONITORING_INTERCEPTOR_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      CONNECT_PRODUCER_CONFLUENT_MONITORING_INTERCEPTOR_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.scram.ScramLoginModule required \
+          username=\"connect\" \
+          password=\"connect-secret\";"
+      CONNECT_PRODUCER_CONFLUENT_MONITORING_INTERCEPTOR_SASL_MECHANISM: SCRAM-SHA-256
+      # consumer
+      CONNECT_CONSUMER_CONFLUENT_MONITORING_INTERCEPTOR_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      CONNECT_CONSUMER_CONFLUENT_MONITORING_INTERCEPTOR_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.scram.ScramLoginModule required \
+          username=\"connect\" \
+          password=\"connect-secret\";"
+      CONNECT_CONSUMER_CONFLUENT_MONITORING_INTERCEPTOR_SASL_MECHANISM: SCRAM-SHA-256
+      # producer
+      CONNECT_PRODUCER_SASL_MECHANISM: SCRAM-SHA-256
+      CONNECT_PRODUCER_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      CONNECT_PRODUCER_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.scram.ScramLoginModule required \
+          username=\"connect\" \
+          password=\"connect-secret\";"
+      # consumer
+      CONNECT_CONSUMER_SASL_MECHANISM: SCRAM-SHA-256
+      CONNECT_CONSUMER_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      CONNECT_CONSUMER_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.scram.ScramLoginModule required \
+          username=\"connect\" \
+          password=\"connect-secret\";"
+  
+  ksqldb-server:
+    image: confluentinc/cp-ksqldb-server:${TAG}
+    hostname: ksqldb-server
+    container_name: ksqldb-server
+    depends_on:
+      - broker
+      - connect
+    ports:
+      - "8088:8088"
+    profiles:
+    - ksqldb
+    environment:
+      KSQL_JMX_HOSTNAME: localhost
+      KSQL_LISTENERS: http://0.0.0.0:8088
+      KSQL_BOOTSTRAP_SERVERS: broker:19094
+      KSQL_CACHE_MAX_BYTES_BUFFERING: 0
+      KSQL_KSQL_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      KSQL_KSQL_CONNECT_URL: "http://connect:8083"
+      # KSQL_KSQL_STREAMS_PROCESSING_GUARANTEE=exactly_once
+      # --- ksqlDB Server log config ---
+      KSQL_LOG4J_ROOT_LOGLEVEL: "INFO"
+      KSQL_LOG4J_LOGGERS: "org.apache.kafka.connect.runtime.rest=WARN,org.reflections=ERROR"
+      # --- ksqlDB processing log config ---
+      # KSQL_LOG4J_PROCESSING_LOG_BROKERLIST: broker:9092
+      # KSQL_LOG4J_PROCESSING_LOG_TOPIC: ksql_processing_log
+      # KSQL_KSQL_LOGGING_PROCESSING_TOPIC_NAME: ksql_processing_log
+      # KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE: "true"
+      # KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: "true"
+      # KSQL_KSQL_LOGGING_PROCESSING_ROWS_INCLUDE: 'true'
+      KSQL_PRODUCER_INTERCEPTOR_CLASSES: "io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor"
+      KSQL_CONSUMER_INTERCEPTOR_CLASSES: "io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor"
+      # KSQL_METRIC_REPORTERS: io.confluent.telemetry.reporter.TelemetryReporter
+      # KSQL_CONFLUENT_TELEMETRY_ENABLED: 'true'
+      # KSQL_CONFLUENT_TELEMETRY_API_KEY: 'CLOUD_API_KEY'
+      # KSQL_CONFLUENT_TELEMETRY_API_SECRET: 'CLOUD_API_SECRET'
+      KSQL_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      KSQL_SASL_MECHANISM: SCRAM-SHA-256
+      KSQL_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.scram.ScramLoginModule required \
+          username=\"ksqldb\" \
+          password=\"ksqldb-secret\";"
+      # producer
+      KSQL_PRODUCER_CONFLUENT_MONITORING_INTERCEPTOR_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      KSQL_PRODUCER_CONFLUENT_MONITORING_INTERCEPTOR_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.scram.ScramLoginModule required \
+          username=\"ksqldb\" \
+          password=\"ksqldb-secret\";"
+      KSQL_PRODUCER_CONFLUENT_MONITORING_INTERCEPTOR_SASL_MECHANISM: SCRAM-SHA-256
+      # consumer
+      KSQL_CONSUMER_CONFLUENT_MONITORING_INTERCEPTOR_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      KSQL_CONSUMER_CONFLUENT_MONITORING_INTERCEPTOR_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.scram.ScramLoginModule required \
+          username=\"ksqldb\" \
+          password=\"ksqldb-secret\";"
+      KSQL_CONSUMER_CONFLUENT_MONITORING_INTERCEPTOR_SASL_MECHANISM: SCRAM-SHA-256
+
+  ksqldb-cli:
+    image: confluentinc/cp-ksqldb-cli:${TAG}
+    container_name: ksqldb-cli
+    depends_on:
+      - broker
+      - connect
+      - ksqldb-server
+    entrypoint: /bin/sh
+    profiles:
+    - ksqldb
+    tty: true
+
+  control-center:
+    image: confluentinc/cp-enterprise-control-center:${TAG}
+    hostname: control-center
+    container_name: control-center
+    restart: always
+    depends_on:
+      - broker
+      - schema-registry
+      - connect
+    ports:
+      - "9021:9021"
+    profiles:
+    - control-center
+    environment:
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: 'broker:19094'
+      CONTROL_CENTER_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      CONTROL_CENTER_CONNECT_CLUSTER: http://connect:8083 # deprecated
+      CONTROL_CENTER_CONNECT_MYCONNECT_CLUSTER: http://connect:8083
+      CONTROL_CENTER_KAFKA_BOOTSTRAP_SERVERS: 'broker:19094'
+      CONTROL_CENTER_REPLICATION_FACTOR: 1
+      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
+      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
+      CONTROL_CENTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      CONFLUENT_METRICS_TOPIC_REPLICATION: 1
+      CONTROL_CENTER_KAFKA_MYCLUSTER_BOOTSTRAP_SERVERS: 'broker:19094'
+      CONTROL_CENTER_UI_AUTOUPDATE_ENABLE: "false"
+      CONTROL_CENTER_KSQL_URL: "http://ksqldb-server:8088" # deprecated
+      CONTROL_CENTER_KSQL_ADVERTISED_URL: "http://127.0.0.1:8088" # deprecated
+      CONTROL_CENTER_KSQL_MYKSQL_URL: "http://ksqldb-server:8088"
+      CONTROL_CENTER_KSQL_MYKSQL_ADVERTISED_URL: "http://127.0.0.1:8088"
+      CONTROL_CENTER_COMMAND_TOPIC_REPLICATION: 1
+      CONTROL_CENTER_METRICS_TOPIC_REPLICATION: 1
+      # METRIC_REPORTERS: io.confluent.telemetry.reporter.TelemetryReporter
+      # CONFLUENT_TELEMETRY_ENABLED: 'true'
+      # CONFLUENT_TELEMETRY_API_KEY: 'CLOUD_API_KEY'
+      # CONFLUENT_TELEMETRY_API_SECRET: 'CLOUD_API_SECRET'
+      # starting from 7.0
+      #CONTROL_CENTER_MODE_ENABLE: management
+      # CONTROL_CENTER_ID: 32
+      CONTROL_CENTER_STREAMS_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      CONTROL_CENTER_STREAMS_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.scram.ScramLoginModule required \
+          username=\"client\" \
+          password=\"client-secret\";"
+      CONTROL_CENTER_STREAMS_SASL_MECHANISM: SCRAM-SHA-256
+
+      CONTROL_CENTER_KAFKA_MYCLUSTER_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      CONTROL_CENTER_KAFKA_MYCLUSTER_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.scram.ScramLoginModule required \
+          username=\"client\" \
+          password=\"client-secret\";"
+      CONTROL_CENTER_KAFKA_MYCLUSTER_SASL_MECHANISM: SCRAM-SHA-256
+
+  kcat:
+    image: confluentinc/cp-kcat:latest
+    hostname: kcat
+    container_name: kcat
+    depends_on:
+      - broker
+    entrypoint: [ "sh", "-c", "sleep infinity" ]
+    profiles:
+      - "kcat"
