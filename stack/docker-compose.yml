@@ -114,7 +114,11 @@ services:
           password=\"schemaregistry-secret\";"
 
   connect:
-    image:  cnfldemos/cp-server-connect-datagen:0.6.0-${TAG}
+    build: 
+      context: ./connect
+      args:
+        - TAG=${TAG}
+        - CONNECT_USER=root
     hostname: connect
     container_name: connect
     restart: always
@@ -329,6 +333,16 @@ services:
     entrypoint: [ "sh", "-c", "sleep infinity" ]
     profiles:
       - "kcat"
+
+  elasticsearch:
+    image: elasticsearch:7.12.0
+    hostname: elasticsearch
+    container_name: elasticsearch
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      discovery.type: single-node
 
   data-lineage-forwarder:
     build: ../forwarder

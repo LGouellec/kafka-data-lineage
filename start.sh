@@ -167,3 +167,15 @@ echo "Start data lineage products"
 docker-compose -f stack/docker-compose.yml up -d data-lineage-forwarder
 
 # echo "Hello kafkacat!" | kafkacat -b $BROKERS -P -X security.protocol=SASL_PLAINTEXT -X sasl.mechanisms=SCRAM-SHA-256 -X sasl.username=$USERNAME -X sasl.password=$PASSWORD -t $TOPIC
+
+
+# curl -X PUT \
+#           -H "Content-Type: application/json" \
+#           --data '{
+#                "connector.class": "io.confluent.connect.elasticsearch.ElasticsearchSinkConnector",
+#                "tasks.max": "1",
+#                "topics": "test-elasticsearch-sink",
+#                "key.ignore": "true",
+#                "connection.url": "http://elasticsearch:9200"
+#                }' \
+#           http://localhost:8083/connectors/elasticsearch-sink/config | jq .
