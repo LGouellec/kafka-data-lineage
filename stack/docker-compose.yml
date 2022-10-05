@@ -330,8 +330,8 @@ services:
     profiles:
       - "kcat"
 
-  forwarder:
-    image: forwarder
+  data-lineage-forwarder:
+    build: ../forwarder
     depends_on:
       - broker
       - schema-registry

@@ -130,7 +130,7 @@ docker exec kafka-broker-1 kafka-acls --bootstrap-server kafka-broker-1:19094 --
                                     --group ConfluentTelemetryReporter --resource-pattern-type prefixed --operation Describe
                     
 # Start others
-docker-compose -f stack/docker-compose.yml up -d --build schema-registry connect control-center kcat ksqldb-server ksqldb-cli
+docker-compose -f stack/docker-compose.yml up -d schema-registry connect control-center kcat ksqldb-server ksqldb-cli
 
 ./scripts/wait-for-connect-and-controlcenter.sh $@
 
@@ -160,4 +160,6 @@ curl -s -X PUT \
             }' \
       http://localhost:8083/connectors/datagen-trades/config | jq
 
-# # Start kcat both consumers
+# Start data lineage services
+echo "Start data lineage products"
+docker-compose -f stack/docker-compose.yml up -d data-lineage-forwarder

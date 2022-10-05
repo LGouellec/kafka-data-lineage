@@ -4,7 +4,7 @@ IGNORE_CHECK_FOR_DOCKER_COMPOSE=true
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
 IGNORE_CONNECT_STARTUP="FALSE"
-IGNORE_CONTROL_CENTER_STARTUP="TRUE"
+IGNORE_CONTROL_CENTER_STARTUP="FALSE"
 shiftconnect=0
 shiftcontrolcenter=0
 
