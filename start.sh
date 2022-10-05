@@ -142,6 +142,7 @@ echo "Create data lineage topics"
 docker exec kafka-broker-1 kafka-topics --bootstrap-server kafka-broker-1:19094 --command-config /etc/kafka/client-properties/admin.properties --create --topic data-lineage-fetch-requests --partitions 8 --replication-factor 1
 docker exec kafka-broker-1 kafka-topics --bootstrap-server kafka-broker-1:19094 --command-config /etc/kafka/client-properties/admin.properties --create --topic data-lineage-produce-requests --partitions 8 --replication-factor 1
 docker exec kafka-broker-1 kafka-topics --bootstrap-server kafka-broker-1:19094 --command-config /etc/kafka/client-properties/admin.properties --create --topic data-lineage-dlq-requests --partitions 8 --replication-factor 1
+docker exec kafka-broker-1 kafka-topics --bootstrap-server kafka-broker-1:19094 --command-config /etc/kafka/client-properties/admin.properties --create --topic data-lineage-notification --partitions 3 --replication-factor 1
 
 echo "Add ACLs for julie"
 docker exec kafka-broker-1 kafka-acls --bootstrap-server kafka-broker-1:19094 --command-config /etc/kafka/client-properties/admin.properties --add \
@@ -160,6 +161,9 @@ curl -s -X PUT \
             }' \
       http://localhost:8083/connectors/datagen-trades/config | jq
 
+
 # Start data lineage services
 echo "Start data lineage products"
 docker-compose -f stack/docker-compose.yml up -d data-lineage-forwarder
+
+# echo "Hello kafkacat!" | kafkacat -b $BROKERS -P -X security.protocol=SASL_PLAINTEXT -X sasl.mechanisms=SCRAM-SHA-256 -X sasl.username=$USERNAME -X sasl.password=$PASSWORD -t $TOPIC

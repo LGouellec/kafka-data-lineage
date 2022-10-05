@@ -1,5 +1,5 @@
 {
-  "namespace": "data.lineage.processing.avro",
+  "namespace": "data.lineage.forwarder.avro",
   "type": "record",
   "name": "FetchRequest",
   "fields": [

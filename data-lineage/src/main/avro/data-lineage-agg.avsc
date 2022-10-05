@@ -1,0 +1,27 @@
+{
+  "namespace": "data.lineage.processing.avro",
+  "type": "record",
+  "name": "DataLineageAggregation",
+  "fields": [
+    {
+      "name": "topic",
+      "type": "string"
+    },
+    {
+      "name":"consumers",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "default": []
+    },
+    {
+      "name":"producers",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "default": []
+    }
+  ]
+}
