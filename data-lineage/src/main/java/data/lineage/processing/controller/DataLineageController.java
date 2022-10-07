@@ -2,6 +2,9 @@ package data.lineage.processing.controller;
 
 import data.lineage.processing.avro.DataLineageAggregation;
 import data.lineage.processing.dto.TopicDTO;
+import data.lineage.processing.graph.BuilderGraph;
+import data.lineage.processing.graph.Graph;
+import data.lineage.processing.graph.Node;
 import data.lineage.processing.mapper.Mapper;
 import data.lineage.processing.streams.TopologyKafkaStreams;
 import org.apache.kafka.streams.StoreQueryParameters;
@@ -24,7 +27,7 @@ public class DataLineageController {
     private TopologyKafkaStreams streams;
 
     @RequestMapping(value = "/topics", method = RequestMethod.GET, produces = "application/json")
-    public List<TopicDTO> getDayProduct() {
+    public List<TopicDTO> getTopics() {
 
         List<TopicDTO> topics = new ArrayList<>();
 
@@ -38,5 +41,21 @@ public class DataLineageController {
         iterator.close();
 
         return topics;
+    }
+
+    @RequestMapping(value = "/graph", method = RequestMethod.GET, produces = "application/json")
+    public void getGraph(){
+        List<TopicDTO> topics = new ArrayList<>();
+
+        ReadOnlyKeyValueStore<String, DataLineageAggregation> store = streams
+                .getStreams()
+                .store(StoreQueryParameters.fromNameAndType(TopologyKafkaStreams.AGGRATION_STORE, QueryableStoreTypes.keyValueStore()));
+
+        KeyValueIterator<String, DataLineageAggregation> iterator =  store.all();
+        while(iterator.hasNext())
+            topics.add(Mapper.getTopicDTO(iterator.next().value));
+        iterator.close();
+
+        Graph graph = BuilderGraph.withTopics(topics).buildGraph();
     }
 }

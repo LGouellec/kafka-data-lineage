@@ -1,5 +1,6 @@
 package data.lineage.processing.dto;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -9,8 +10,8 @@ public class TopicDTO {
     private List<String> producers;
 
     public TopicDTO() {
-        consumers = Collections.emptyList();
-        producers = Collections.emptyList();
+        consumers = new ArrayList<>();
+        producers = new ArrayList<>();
     }
 
     public String getTopic() {
