@@ -3,7 +3,7 @@ package data.lineage.processing.mapper;
 import data.lineage.processing.avro.DataLineageAggregation;
 import data.lineage.processing.dto.TopicDTO;
 
-public class Mapper {
+public class TopicMapper {
 
     public static TopicDTO getTopicDTO(DataLineageAggregation dataLineageAggregation){
         TopicDTO dto = new TopicDTO();

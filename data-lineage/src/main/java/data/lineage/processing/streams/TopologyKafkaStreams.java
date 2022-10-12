@@ -9,6 +9,7 @@ import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.Topology;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -22,9 +23,14 @@ import java.util.stream.Collectors;
 @Component
 public class TopologyKafkaStreams {
 
-    public static String FETCH_REQUEST_TOPIC = "data-lineage-fetch-requests";
-    public static String PRODUCE_REQUEST_TOPIC = "data-lineage-produce-requests";
-    public static final String AGGRATION_STORE = "aggregation-store";
+    @Value("${FETCH_REQUEST_TOPIC:data-lineage-fetch-requests}")
+    public String FETCH_REQUEST_TOPIC;
+
+    @Value("${PRODUCE_REQUEST_TOPIC:data-lineage-produce-requests}")
+    public String PRODUCE_REQUEST_TOPIC;
+
+    @Value("${AGGREGATION_STORE:aggregation-store}")
+    public String AGGREGATION_STORE;
 
     private static final String KAFKA_ENV_PREFIX = "KAFKA_";
     private final Properties properties;
@@ -91,7 +97,7 @@ public class TopologyKafkaStreams {
                 config,
                 FETCH_REQUEST_TOPIC,
                 PRODUCE_REQUEST_TOPIC,
-                AGGRATION_STORE);
+                AGGREGATION_STORE);
 
         logger.info(topology.describe().toString());
 

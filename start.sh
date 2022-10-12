@@ -94,6 +94,15 @@ docker exec kafka-broker-1 kafka-acls --bootstrap-server kafka-broker-1:19094 --
 docker exec kafka-broker-1 kafka-acls --bootstrap-server kafka-broker-1:19094 --command-config /etc/kafka/client-properties/admin.properties --add \
                                     --allow-principal 'User:ksqldb' --allow-host '*' \
                                     --operation All --resource-pattern-type prefixed --topic _confluent-ksql --group _confluent-ksql
+
+docker exec kafka-broker-1 kafka-acls --bootstrap-server kafka-broker-1:19094 --command-config /etc/kafka/client-properties/admin.properties --add \
+                                    --allow-principal 'User:ksqldb' --allow-host '*' \
+                                    --operation Write --operation Describe --topic '*' --transactional-id '*'
+
+docker exec kafka-broker-1 kafka-acls --bootstrap-server kafka-broker-1:19094 --command-config /etc/kafka/client-properties/admin.properties --add \
+                                    --allow-principal 'User:ksqldb' --allow-host '*' \
+                                    --operation Create --topic '*'
+
 # TODO : ksqldb output topic
 
 echo "Add ACLs for control-center"
@@ -130,7 +139,7 @@ docker exec kafka-broker-1 kafka-acls --bootstrap-server kafka-broker-1:19094 --
                                     --group ConfluentTelemetryReporter --resource-pattern-type prefixed --operation Describe
                     
 # Start others
-docker-compose -f stack/docker-compose.yml up -d schema-registry connect control-center kcat ksqldb-server ksqldb-cli
+docker-compose -f stack/docker-compose.yml up -d schema-registry connect control-center kcat ksqldb-server ksqldb-cli elasticsearch kibana
 
 ./scripts/wait-for-connect-and-controlcenter.sh $@
 
@@ -149,6 +158,11 @@ docker exec kafka-broker-1 kafka-acls --bootstrap-server kafka-broker-1:19094 --
                                     --allow-principal 'User:julie' --allow-host '*' \
                                     --producer --idempotent --topic stock_trades
 
+echo "Add ACLs for allan"
+docker exec kafka-broker-1 kafka-acls --bootstrap-server kafka-broker-1:19094 --command-config /etc/kafka/client-properties/admin.properties --add \
+                                    --allow-principal 'User:allan' --allow-host '*' \
+                                    --consumer --topic stock_trades_windowed --group connect-elasticsearch-trades
+
 echo "Create datagen source connector"
 curl -s -X PUT \
       -H "Content-Type: application/json" \
@@ -157,6 +171,7 @@ curl -s -X PUT \
                 "kafka.topic": "stock_trades",
                 "quickstart": "stock_trades",
                 "tasks.max": "1",
+                "producer.override.client.id": "connect-datagen-trades",
                 "producer.override.sasl.jaas.config": "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"julie\" password=\"julie-secret\";"
             }' \
       http://localhost:8083/connectors/datagen-trades/config | jq
@@ -166,16 +181,50 @@ curl -s -X PUT \
 echo "Start data lineage products"
 docker-compose -f stack/docker-compose.yml up -d data-lineage-forwarder
 
+echo "🚀 Create the ksqlDB stream"
+docker exec -i ksqldb-cli bash -c 'echo -e "\n\n⏳ Waiting for ksqlDB to be available before launching CLI\n"; while [[ $(curl -s -o /dev/null -w %{http_code} http://ksqldb-server:8088/) -eq 000 ]] ; do echo -e $(date) "KSQL Server HTTP state: " $(curl -s -o /dev/null -w %{http_code} http:/ksqldb-server:8088/) " (waiting for 200)" ; sleep 10 ; done; ksql http://ksqldb-server:8088' << EOF
+
+SET 'auto.offset.reset' = 'earliest';
+
+CREATE OR REPLACE STREAM STOCK_TRADES (
+   quantity BIGINT,
+   price BIGINT,
+   userid VARCHAR,
+   side VARCHAR)
+   WITH (KAFKA_TOPIC='stock_trades', VALUE_FORMAT='AVRO');
+
+CREATE OR REPLACE TABLE STOCK_TRADES_WINDOWED
+    WITH (kafka_topic='stock_trades_windowed') AS
+    SELECT USERID,
+           AVG(QUANTITY * PRICE) AS AVG_STOCK_TOTAL,
+           WINDOWEND as WINDOW_END,
+           AS_VALUE(USERID) USER
+    FROM STOCK_TRADES
+    WINDOW TUMBLING (SIZE 5 MINUTES)
+    WHERE SIDE = 'BUY'
+    GROUP BY USERID;
+
+EOF
+
+sleep 3;
+
+echo "Create elastic sink connector" 
+curl -X PUT \
+           -H "Content-Type: application/json" \
+           --data '{
+                "connector.class": "io.confluent.connect.elasticsearch.ElasticsearchSinkConnector",
+                "connection.url": "http://elasticsearch:9200",
+                "type.name": "_doc",
+                "behavior.on.malformed.documents": "warn",
+                "errors.tolerance": "all",
+                "errors.log.enable": "true",
+                "errors.log.include.messages": "true",
+                "topics": "stock_trades_windowed",
+                "key.ignore": "true",
+                "schema.ignore": "true",
+                "consumer.override.client.id": "connect-elasticsearch-trades",
+                "consumer.override.sasl.jaas.config": "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"allan\" password=\"allan-secret\";"
+            }' \
+           http://localhost:8083/connectors/elasticsearch-trades/config | jq .
+
 # echo "Hello kafkacat!" | kafkacat -b $BROKERS -P -X security.protocol=SASL_PLAINTEXT -X sasl.mechanisms=SCRAM-SHA-256 -X sasl.username=$USERNAME -X sasl.password=$PASSWORD -t $TOPIC
-
-
-# curl -X PUT \
-#           -H "Content-Type: application/json" \
-#           --data '{
-#                "connector.class": "io.confluent.connect.elasticsearch.ElasticsearchSinkConnector",
-#                "tasks.max": "1",
-#                "topics": "test-elasticsearch-sink",
-#                "key.ignore": "true",
-#                "connection.url": "http://elasticsearch:9200"
-#                }' \
-#           http://localhost:8083/connectors/elasticsearch-sink/config | jq .

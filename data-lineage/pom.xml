@@ -32,15 +32,20 @@
 
     <dependencies>
         <dependency>
+            <groupId>io.confluent.ksql</groupId>
+            <artifactId>ksqldb-api-client</artifactId>
+            <version>7.2.2</version>
+        </dependency>
+        <dependency>
             <groupId>org.sourcelab</groupId>
             <artifactId>kafka-connect-client</artifactId>
             <version>4.0.1</version>
         </dependency>
-        <dependency>
+        <!--<dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
             <version>1.2.3</version>
-        </dependency>
+        </dependency>-->
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
@@ -76,10 +81,21 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
             <version>2.6.3</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+            <version>2.6.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-log4j2</artifactId>
             <version>2.6.3</version>
         </dependency>
         <dependency>

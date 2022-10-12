@@ -1,0 +1,49 @@
+.Flow {
+  flex-grow: 1;
+  font-size: 12px;
+}
+
+
+.react-flow__node-custom {
+  padding: 10px;
+  width: 'auto';
+  text-align: center;
+  background-color: white;
+}
+
+.gradient-div {
+  display: flex;
+  align-items: center;
+  width: 300px;
+  height:150px;
+  margin: auto;
+  position: relative;
+  padding: 2rem;
+  color: #8F8F8F;
+  font-size: larger;
+  font-weight: bold;
+  text-align: center;
+  background: #fff;
+  background-clip: padding-box;
+  border-radius: 10px;
+}
+
+.gradient-div:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: -1;
+  margin: -10px;
+  border-radius: inherit;
+  background: linear-gradient(230.46deg, #5F5FF3 -2.98%, #B67DFF 68.14%, #FF83CD 104.54%);
+}
+
+.react-flow__node-custom .react-flow__handle {
+  width: 6px;
+  height: 10px;
+  border-radius: 2px;
+  background-color: #778899;
+}

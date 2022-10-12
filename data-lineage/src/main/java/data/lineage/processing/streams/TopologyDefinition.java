@@ -39,14 +39,14 @@ public class TopologyDefinition {
         KStream<String, FetchRequest> fetchStream = builder.stream(fetchTopic, Consumed.with(Serdes.String(), fetchSerde));
         KStream<String, ProduceRequest> produceStream = builder.stream(produceTopic, Consumed.with(Serdes.String(), produceSerde));
 
-        fetchStream
-                .transform(() -> new ProcessorFetchRequest(aggStore), aggStore)
-                .to("data-lineage-notification", Produced.with(Serdes.String(), aggSerde));
+        KStream<String, DataLineageAggregation> fetchEnriched = fetchStream
+                .transform(() -> new ProcessorFetchRequest(aggStore), aggStore);
 
-        produceStream
-                .transform(() -> new ProcessorProduceRequest(aggStore), aggStore)
-                .to("data-lineage-notification", Produced.with(Serdes.String(), aggSerde));
+        KStream<String, DataLineageAggregation> producedEnriched =  produceStream
+                .transform(() -> new ProcessorProduceRequest(aggStore), aggStore);
 
+        fetchEnriched.merge(producedEnriched)
+                .to("data-lineage-notification", Produced.with(Serdes.String(), aggSerde));
 
         Topology topology = builder.build();
 

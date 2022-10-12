@@ -335,14 +335,40 @@ services:
       - "kcat"
 
   elasticsearch:
-    image: elasticsearch:7.12.0
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.15.2
     hostname: elasticsearch
     container_name: elasticsearch
     ports:
       - "9200:9200"
       - "9300:9300"
     environment:
+      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+      # Use single node discovery in order to disable production mode and avoid bootstrap checks.
+      # see: https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
       discovery.type: single-node
+    command: 
+      - bash 
+      - -c 
+      - |
+        /usr/local/bin/docker-entrypoint.sh & 
+        echo "Waiting for Elasticsearch to start ⏳"
+        while [ $$(curl -s -o /dev/null -w %{http_code} http://localhost:9200/) -eq 000 ] ; do 
+          echo -e $$(date) " Elasticsearch listener HTTP state: " $$(curl -s -o /dev/null -w %{http_code} http://localhost:9200/) " (waiting for != 000)"
+          sleep 5 
+        done
+        sleep infinity
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.15.2
+    container_name: kibana
+    hostname: kibana
+    depends_on:
+      - elasticsearch
+    ports:
+      - 5601:5601
+    environment:
+      xpack.security.enabled: "false"
+      discovery.type: "single-node"
 
   data-lineage-forwarder:
     build: ../forwarder
@@ -354,6 +380,7 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka-broker-1:19094
       KAFKA_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      KAFKA_AUTO_OFFSET_RESET: earliest
       FORWARDER_SOURCE_TOPIC: confluent-audit-log-events
       FORWARDER_FETCH_TOPIC: data-lineage-fetch-requests
       FORWARDER_PRODUCE_TOPIC: data-lineage-produce-requests

@@ -3,6 +3,7 @@ package data.lineage.processing.graph;
 public class Graph {
 
     private Node firstNode;
+    public static int indexGenerate = 0;
 
     Graph(Node first){
         this.firstNode = first;
@@ -20,23 +21,34 @@ public class Graph {
         return getRecurseNode(firstNode, name);
     }
 
-    public Node changeFirstNode(Node newFirstNode){
-        newFirstNode.addNextNode(firstNode);
-        firstNode = newFirstNode;
-        return firstNode;
+    public void addGraphNode(Node parent, Node child){
+        if(child.getIndex() < parent.getIndex()){
+            firstNode.removeNode(child.getIndex());
+            parent.addNextNode(child);
+            indexGenerate = 1;
+            recalculateIndex(firstNode);
+        }
+        else {
+            parent.addNextNode(child);
+        }
+    }
+
+    private void recalculateIndex(Node node) {
+        node.setIndex(indexGenerate);
+        for(Node n : node.getNext()){
+            ++indexGenerate;
+            recalculateIndex(n);
+        }
     }
 
     private Node getRecurseNode(Node node, String name){
         if(node.getName().equals(name))
             return node;
 
-        while(node.containsChild()){
-            for(Node n : node.getNext())
-            {
-                Node tmp = getRecurseNode(n, name);
-                if(tmp != null)
-                    return tmp;
-            }
+        for(Node n : node.getNext()) {
+            Node tmp = getRecurseNode(n, name);
+            if(tmp != null)
+                return tmp;
         }
 
         return null;
