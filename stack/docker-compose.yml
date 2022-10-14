@@ -387,4 +387,39 @@ services:
       FORWARDER_DLQ_TOPIC: data-lineage-dlq-requests
       FORWARDER_EXCLUDE_TOPIC: "^_(.*)|^connect(.*)|^data-lineage(.*)"
 
-    
+  data-lineage-api:
+    build: ../data-lineage
+    depends_on:
+      - broker
+      - schema-registry
+      - data-lineage-forwarder
+    ports:
+      - "8080:8080"
+    hostname: lineage-api
+    container_name: lineage-api
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka-broker-1:19094
+      KAFKA_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      KAFKA_AUTO_OFFSET_RESET: earliest
+      FETCH_REQUEST_TOPIC: data-lineage-fetch-requests
+      PRODUCE_REQUEST_TOPIC: data-lineage-produce-requests
+      AGGREGATION_STORE: aggregation-store
+      KSQLDB_NAMING_CONVENTION: _confluent-ksql-default_query_(.*)-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-StreamThread-[0-9]*-(consumer|producer)
+      KSQLDB_GROUP_NAMEQUERY_INDEX: 1
+      CONNECT_NAMING_CONVENTION: ^connect-(.*)
+      CONNECT_GROUP_CONNECTOR_NAME_INDEX: 1
+      KAFKA_CONNECT_HOST: connect
+      KAFKA_CONNECT_PORT: 8083
+      KSQLDB_HOST: ksqldb-server
+      KSQLDB_PORT: 8088
+
+  data-lineage-ui:
+    build: ../lineage-ui
+    depends_on:
+      - broker
+      - data-lineage-api
+      - data-lineage-forwarder
+    ports:
+      - "80:80"
+    hostname: lineage-ui
+    container_name: lineage-ui

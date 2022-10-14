@@ -41,13 +41,6 @@ public class TopologyKafkaStreams {
     public TopologyKafkaStreams() {
         properties = buildProperties(defaultProps, System.getenv(), KAFKA_ENV_PREFIX);
         definition = new TopologyDefinition();
-
-        if(System.getenv("FORWARDER_FETCH_TOPIC") != null)
-            FETCH_REQUEST_TOPIC = System.getenv("FORWARDER_FETCH_TOPIC");
-
-        if(System.getenv("FORWARDER_PRODUCE_TOPIC") != null)
-            PRODUCE_REQUEST_TOPIC = System.getenv("FORWARDER_PRODUCE_TOPIC");
-
     }
 
     public KafkaStreams getStreams() {

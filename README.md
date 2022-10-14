@@ -1,9 +1,9 @@
 # kafka-data-lineage
 On-prem Data Lineage based on Confluent Audit Logs
 
-TODO
-- Create Graph Algo (kafka streams naming) + app kafka streams for example
-- React flow UI
-- https://codesandbox.io/s/30fre
-- UI test Dagre Tree : https://reactflow.dev/docs/examples/layout/dagre/
-- Real time notification (Consumer unscubscribe, Producer not produced)
+## TODO List
+[ ] Provide Kafka Streams
+[ ] Real time notification (via websocket) - Subscribe GroupeLeaveRequest, inactive/active, Producer no throughput
+[ ] Integrate User, property for each nodes
+[ ] Integrate metrics (ex: https://codesandbox.io/s/30fre)
+[ ] Integrate Dagre (ex: https://reactflow.dev/docs/examples/layout/dagre/)
