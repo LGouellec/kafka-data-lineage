@@ -21,7 +21,8 @@ public class TopologyDefinition {
             Map<String, Object> config,
             String fetchTopic,
             String produceTopic,
-            String aggStore){
+            String aggStore,
+            String notificationTopic){
 
         SpecificAvroSerde<FetchRequest> fetchSerde = new SpecificAvroSerde<>();
         fetchSerde.configure(config, false);
@@ -46,7 +47,7 @@ public class TopologyDefinition {
                 .transform(() -> new ProcessorProduceRequest(aggStore), aggStore);
 
         fetchEnriched.merge(producedEnriched)
-                .to("data-lineage-notification", Produced.with(Serdes.String(), aggSerde));
+                .to(notificationTopic, Produced.with(Serdes.String(), aggSerde));
 
         Topology topology = builder.build();
 

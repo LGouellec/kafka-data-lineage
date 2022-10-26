@@ -1,5 +1,6 @@
 package data.lineage.processing.streams;
 
+import data.lineage.processing.helper.KafkaConfigHelper;
 import io.confluent.kafka.serializers.KafkaAvroSerializerConfig;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.common.serialization.Serdes;
@@ -7,6 +8,10 @@ import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.Topology;
+import org.apache.kafka.streams.state.KeyValueStore;
+import org.apache.kafka.streams.state.RocksDBConfigSetter;
+import org.apache.kafka.streams.state.StoreBuilder;
+import org.apache.kafka.streams.state.Stores;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +34,9 @@ public class TopologyKafkaStreams {
     @Value("${PRODUCE_REQUEST_TOPIC:data-lineage-produce-requests}")
     public String PRODUCE_REQUEST_TOPIC;
 
+    @Value("${NOTIFICATION_TOPIC:data-lineage-notification}")
+    public String NOTIFICATION_TOPIC;
+
     @Value("${AGGREGATION_STORE:aggregation-store}")
     public String AGGREGATION_STORE;
 
@@ -39,7 +47,7 @@ public class TopologyKafkaStreams {
     private KafkaStreams streams;
 
     public TopologyKafkaStreams() {
-        properties = buildProperties(defaultProps, System.getenv(), KAFKA_ENV_PREFIX);
+        properties = KafkaConfigHelper.buildProperties(defaultProps, System.getenv(), KAFKA_ENV_PREFIX);
         definition = new TopologyDefinition();
     }
 
@@ -59,23 +67,6 @@ public class TopologyKafkaStreams {
         KafkaAvroSerializerConfig.AUTO_REGISTER_SCHEMAS, "true",
         KafkaAvroSerializerConfig.SCHEMA_REGISTRY_URL_CONFIG, "http://localhost:8081");
 
-    private Properties buildProperties(Map<String, Object> baseProps, Map<String, String> envProps, String prefix) {
-        Map<String, String> systemProperties = envProps.entrySet()
-                .stream()
-                .filter(e -> e.getKey().startsWith(prefix))
-                .collect(Collectors.toMap(
-                        e -> e.getKey()
-                                .replace(prefix, "")
-                                .toLowerCase()
-                                .replace("_", ".")
-                        , e -> e.getValue())
-                );
-
-        Properties props = new Properties();
-        props.putAll(baseProps);
-        props.putAll(systemProperties);
-        return props;
-    }
 
     @PostConstruct
     public void start(){
@@ -90,7 +81,8 @@ public class TopologyKafkaStreams {
                 config,
                 FETCH_REQUEST_TOPIC,
                 PRODUCE_REQUEST_TOPIC,
-                AGGREGATION_STORE);
+                AGGREGATION_STORE,
+                NOTIFICATION_TOPIC);
 
         logger.info(topology.describe().toString());
 
