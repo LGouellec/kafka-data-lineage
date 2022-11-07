@@ -10,6 +10,7 @@ import org.apache.kafka.streams.kstream.ValueTransformerWithKey;
 import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.streams.state.KeyValueStore;
 
+import java.util.ArrayList;
 import java.util.Collections;
 
 public class AbstractProcessorRequest<V>  implements Transformer<String, V, KeyValue<String, DataLineageAggregation>> {
@@ -29,10 +30,10 @@ public class AbstractProcessorRequest<V>  implements Transformer<String, V, KeyV
         newAgg.setTopic(key);
         if(consumer) {
             newAgg.setConsumers(Collections.singletonList(clientId));
-            newAgg.setProducers(Collections.emptyList());
+            newAgg.setProducers(new ArrayList<>());
         }else{
             newAgg.setProducers(Collections.singletonList(clientId));
-            newAgg.setConsumers(Collections.emptyList());
+            newAgg.setConsumers(new ArrayList<>());
         }
         return newAgg;
     }
@@ -47,15 +48,22 @@ public class AbstractProcessorRequest<V>  implements Transformer<String, V, KeyV
     public KeyValue<String, DataLineageAggregation> transform(String readOnlyKey, V value) {
         if(fetchRequest) {
             FetchRequest fetch = (FetchRequest) value;
-            if(store.get(readOnlyKey) != null){
-                DataLineageAggregation oldAgg = store.get(readOnlyKey);
-                if(!oldAgg.getConsumers().contains(fetch.getClientId())){
-                    oldAgg.getConsumers().add(fetch.getClientId());
+            DataLineageAggregation oldAgg = store.get(readOnlyKey);
+            if(oldAgg != null){
+                if(fetch.getLeaveGroup()){
+                    oldAgg.getConsumers().remove(fetch.getClientId());
                     store.put(readOnlyKey, oldAgg);
                     return new KeyValue<>(readOnlyKey, oldAgg);
                 }
+                else {
+                    if (!oldAgg.getConsumers().contains(fetch.getClientId())) {
+                        oldAgg.getConsumers().add(fetch.getClientId());
+                        store.put(readOnlyKey, oldAgg);
+                        return new KeyValue<>(readOnlyKey, oldAgg);
+                    }
+                }
             }
-            else{
+            else if(!fetch.getLeaveGroup()){
                 DataLineageAggregation newAgg = createAgg(true, readOnlyKey, fetch.getClientId());
                 store.put(readOnlyKey, newAgg);
                 return new KeyValue<>(readOnlyKey, newAgg);
@@ -63,8 +71,8 @@ public class AbstractProcessorRequest<V>  implements Transformer<String, V, KeyV
         }
         else{
             ProduceRequest produce = (ProduceRequest) value;
-            if(store.get(readOnlyKey) != null){
-                DataLineageAggregation oldAgg = store.get(readOnlyKey);
+            DataLineageAggregation oldAgg = store.get(readOnlyKey);
+            if(oldAgg!= null){
                 if(!oldAgg.getProducers().contains(produce.getClientId())){
                     oldAgg.getProducers().add(produce.getClientId());
                     store.put(readOnlyKey, oldAgg);

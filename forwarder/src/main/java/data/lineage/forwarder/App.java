@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import data.lineage.forwarder.avro.FetchRequest;
 import data.lineage.forwarder.avro.ProduceRequest;
 import data.lineage.forwarder.bean.AuditEventLog;
+import data.lineage.forwarder.mapper.LeaveGroupMapper;
 import data.lineage.forwarder.mapper.Mapper;
 import io.confluent.kafka.serializers.KafkaAvroSerializerConfig;
 import io.confluent.kafka.streams.serdes.avro.SpecificAvroSerde;
@@ -115,12 +116,18 @@ public class App
                 .split(Named.as("request-"))
                 .branch((k,v) -> v.getData().getAuthorizationInfo().getResourceType().equals("Topic") && v.getData().getMethodName().equals("kafka.FetchConsumer"), Branched.as("fetch"))
                 .branch((k,v) -> v.getData().getAuthorizationInfo().getResourceType().equals("Topic") && v.getData().getMethodName().equals("kafka.Produce"), Branched.as("produce"))
+                .branch((k,v) -> v.getData().getAuthorizationInfo().getResourceType().equals("Group") && v.getData().getMethodName().equals("kafka.LeaveGroup"), Branched.as("leave-group"))
                 .defaultBranch(Branched.as("dlq"));
 
         branchs
                 .get("request-fetch")
                 .filterNot((k,v) -> Pattern.matches(EXCLUDE_TOPIC, Mapper.getTopic(v)))
                 .map((k,v) -> new KeyValue<>(Mapper.getTopic(v), Mapper.getFetchRequest(v)))
+                .to(FETCH_REQUEST_TOPIC, Produced.with(Serdes.String(), fetchSerde));
+
+        branchs
+                .get("request-leave-group")
+                .flatMap(new LeaveGroupMapper(streamsConfiguration))
                 .to(FETCH_REQUEST_TOPIC, Produced.with(Serdes.String(), fetchSerde));
 
         branchs

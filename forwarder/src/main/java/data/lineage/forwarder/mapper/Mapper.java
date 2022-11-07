@@ -21,6 +21,7 @@ public class Mapper {
         request.setMethodName(event.getData().getMethodName());
         request.setOperation(event.getData().getAuthorizationInfo().getOperation());
         request.setTopic(getTopic(event));
+        request.setLeaveGroup(false);
         request.setUser(event.getData().getAuthenticationInfo().getPrincipal());
         return request;
     }

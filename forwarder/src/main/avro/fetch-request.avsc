@@ -26,6 +26,10 @@
     {
        "name": "client_id",
        "type": "string"
+    },
+    {
+      "name": "leaveGroup",
+      "type": "boolean"
     }
   ]
 }
