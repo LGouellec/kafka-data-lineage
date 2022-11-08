@@ -2,7 +2,7 @@
 
 This project is an attempt to provide a data lineage visualization for on-premise usage. It's based on [Confluent Audit Logs](https://docs.confluent.io/platform/current/security/audit-logs/audit-logs-concepts.html). The aim is to visualize consumer/producer as [Stream Lineage](https://docs.confluent.io/cloud/current/stream-governance/stream-lineage.html#summary-of-navigation-paths) can do with [Confluent Cloud](https://www.confluent.io/confluent-cloud/). 
 
-**Disclaimer : It's an expiremental product (aka POC) developed during my free time. **
+**Disclaimer : It's an expiremental product (aka POC) developed during my free time.**
 
 # How to start ? 
 
