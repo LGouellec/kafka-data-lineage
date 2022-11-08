@@ -53,7 +53,6 @@ services:
     hostname: kafka-broker-1
     container_name: kafka-broker-1
     ports:
-      - "19093:19093"
       - "19094:19094"
     depends_on:
       - zookeeper
@@ -65,7 +64,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper-1:22181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-broker-1:19093,SASL_PLAINTEXT://kafka-broker-1:19094
+      KAFKA_ADVERTISED_LISTENERS: SASL_PLAINTEXT://kafka-broker-1:19094
       KAFKA_SASL_ENABLED_MECHANISMS: SCRAM-SHA-256
       KAFKA_SECURITY_INTER_BROKER_PROTOCOL: SASL_PLAINTEXT
       KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: SCRAM-SHA-256
@@ -126,7 +125,6 @@ services:
       - broker
       - schema-registry
     ports:
-      - "5005:5005"
       - "8083:8083"
     environment:
       CONNECT_BOOTSTRAP_SERVERS: 'broker:19094'
@@ -164,14 +162,6 @@ services:
       # CONNECT_CONFLUENT_TELEMETRY_API_SECRET: 'CLOUD_API_SECRET'
       CONNECT_CONNECTOR_CLIENT_CONFIG_OVERRIDE_POLICY: All
       CONNECT_LOG4J_APPENDER_STDOUT_LAYOUT_CONVERSIONPATTERN: "[%d] %p %X{connector.context}%m (%c:%L)%n"
-      # # https://kafka-docker-playground.io/#/reusables?id=✨-remote-debugging
-      # KAFKA_DEBUG: 'true'
-      # # With JDK9+, need to specify address=*:5005, see https://www.baeldung.com/java-application-remote-debugging#from-java9
-      # JAVA_DEBUG_OPTS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:5005'
-      # uncomment when investigating class not found issue, see https://kafka-docker-playground.io/#/reusables?id=🔬-class-loading
-      # KAFKA_OPTS: '-verbose:class'
-      # Reduce Connect memory utilization
-      #EXTRA_ARGS: ${GRAFANA_AGENT_CONNECT}
       KAFKA_JVM_PERFORMANCE_OPTS: -server -XX:+UseG1GC -XX:GCTimeRatio=1
                   -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=20
                   -XX:MaxGCPauseMillis=10000 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent
@@ -324,16 +314,6 @@ services:
           password=\"client-secret\";"
       CONTROL_CENTER_KAFKA_MYCLUSTER_SASL_MECHANISM: SCRAM-SHA-256
 
-  kcat:
-    image: confluentinc/cp-kcat:latest
-    hostname: kcat
-    container_name: kcat
-    depends_on:
-      - broker
-    entrypoint: [ "sh", "-c", "sleep infinity" ]
-    profiles:
-      - "kcat"
-
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.15.2
     hostname: elasticsearch
@@ -357,18 +337,6 @@ services:
           sleep 5 
         done
         sleep infinity
-
-  kibana:
-    image: docker.elastic.co/kibana/kibana:7.15.2
-    container_name: kibana
-    hostname: kibana
-    depends_on:
-      - elasticsearch
-    ports:
-      - 5601:5601
-    environment:
-      xpack.security.enabled: "false"
-      discovery.type: "single-node"
 
   data-lineage-forwarder:
     build: ../forwarder

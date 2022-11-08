@@ -51,7 +51,9 @@ public class AbstractProcessorRequest<V>  implements Transformer<String, V, KeyV
             DataLineageAggregation oldAgg = store.get(readOnlyKey);
             if(oldAgg != null){
                 if(fetch.getLeaveGroup()){
-                    oldAgg.getConsumers().remove(fetch.getClientId());
+                    ArrayList<String> consumers = new ArrayList<>(oldAgg.getConsumers());
+                    consumers.remove(fetch.getClientId());
+                    oldAgg.setConsumers(consumers);
                     store.put(readOnlyKey, oldAgg);
                     return new KeyValue<>(readOnlyKey, oldAgg);
                 }

@@ -2,6 +2,31 @@
 
 export TAG=7.2.1
 
+yellow=`tput setaf 3`
+reset=`tput sgr0`
+POSITIONAL_ARGS=()
+RUN=true
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --run)
+      RUN=true
+      shift # past argument
+      ;;
+    -*|--*)
+      echo "Unknown option $1"
+      exit 1
+      ;;
+    *)
+      POSITIONAL_ARGS+=("$1") # save positional arg
+      shift # past argument
+      ;;
+  esac
+done
+
+set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
+echo "${yellow}RUN DATA LINEAGE PRODUCTS = ${RUN}${reset}"
+
 docker-compose -f stack/docker-compose.yml build
 docker-compose -f stack/docker-compose.yml down -v --remove-orphans
 docker-compose -f stack/docker-compose.yml up -d zookeeper-add-kafka-users zookeeper
@@ -139,7 +164,7 @@ docker exec kafka-broker-1 kafka-acls --bootstrap-server kafka-broker-1:19094 --
                                     --group ConfluentTelemetryReporter --resource-pattern-type prefixed --operation Describe
                     
 # Start others
-docker-compose -f stack/docker-compose.yml up -d schema-registry connect control-center kcat ksqldb-server ksqldb-cli elasticsearch kibana
+docker-compose -f stack/docker-compose.yml up -d schema-registry connect control-center ksqldb-server ksqldb-cli elasticsearch
 
 ./scripts/wait-for-connect-and-controlcenter.sh $@
 
@@ -178,8 +203,10 @@ curl -s -X PUT \
 
 
 # Start data lineage services
-echo "Start data lineage products"
-docker-compose -f stack/docker-compose.yml  up -d data-lineage-forwarder data-lineage-api data-lineage-ui
+if [ "$RUN" = "true" ]; then
+    echo "🚀Start data lineage products"
+    docker-compose -f stack/docker-compose.yml  up -d data-lineage-forwarder data-lineage-api data-lineage-ui
+fi
 
 echo "🚀 Create the ksqlDB stream"
 docker exec -i ksqldb-cli bash -c 'echo -e "\n\n⏳ Waiting for ksqlDB to be available before launching CLI\n"; while [[ $(curl -s -o /dev/null -w %{http_code} http://ksqldb-server:8088/) -eq 000 ]] ; do echo -e $(date) "KSQL Server HTTP state: " $(curl -s -o /dev/null -w %{http_code} http:/ksqldb-server:8088/) " (waiting for 200)" ; sleep 10 ; done; ksql http://ksqldb-server:8088' << EOF
@@ -226,4 +253,6 @@ curl -X PUT \
             }' \
            http://localhost:8083/connectors/elasticsearch-trades/config | jq .
 
-# echo "Hello kafkacat!" | kafkacat -b $BROKERS -P -X security.protocol=SASL_PLAINTEXT -X sasl.mechanisms=SCRAM-SHA-256 -X sasl.username=$USERNAME -X sasl.password=$PASSWORD -t $TOPIC
+if [ "$RUN" = "true" ]; then
+    echo "🚀 All the stack is running, feel free to go on http://localhost:80. Enjoy your visualization ! 🎉 "
+fi

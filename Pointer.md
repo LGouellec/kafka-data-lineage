@@ -1,0 +1,2 @@
+- [ ] Integrate metrics (ex: https://codesandbox.io/s/30fre)
+- [ ] Integrate Dagre (ex: https://reactflow.dev/docs/examples/layout/dagre/)
