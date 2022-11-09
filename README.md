@@ -38,7 +38,7 @@ Go at http://localhost, and you can visualize your data lineage dashboard.
 
 ![lineage-ui](./resources/lineage-dashboard-visualization.png)
 
-If you try to delete the sink elastic connector, you could see the dashboard instantly updated.
+If you try to delete the elastic sink connector, you could see the dashboard instantly updated.
 
 ``` bash
 curl -X DELETE http://localhost:8083/connectors/elasticsearch-trades
